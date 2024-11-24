@@ -6,7 +6,7 @@ using SerilogTracing.Expressions;
 using Serilog.Sinks.Http;
 using Elastic.CommonSchema.Serilog;
 
-var ecsTextFormatterConfiguration = new EcsTextFormatterConfiguration<CustomEcsDocument>
+var ecsTextFormatterConfiguration = new EcsTextFormatterConfiguration<ExtendedEcsDocument>
 {
     MapCustom = (ecsDocument, logEvent) =>
     {
@@ -18,21 +18,9 @@ var ecsTextFormatterConfiguration = new EcsTextFormatterConfiguration<CustomEcsD
     }
 };
 
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Override("Microsoft.AspNetCore.Hosting", LogEventLevel.Warning)
-    .MinimumLevel.Override("Microsoft.AspNetCore.Routing", LogEventLevel.Warning)
-    .Enrich.WithProperty("Application", "Example")
-    .Enrich.FromLogContext()
-    .WriteTo.Http(
-        requestUri: "http://localhost:8000",
-        queueLimitBytes: null, // Optional: Adjust as needed
-        textFormatter: new EcsTextFormatter<CustomEcsDocument>(ecsTextFormatterConfiguration))
-    .WriteTo.Console(Formatters.CreateConsoleTextFormatter(theme: TemplateTheme.Code))
-    .CreateLogger();
-
-using var listener = new ActivityListenerConfiguration()
-    .Instrument.AspNetCoreRequests()
-    .TraceToSharedLogger();
+//using var listener = new ActivityListenerConfiguration()
+//    .Instrument.AspNetCoreRequests()
+//    .TraceToSharedLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,7 +30,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddSerilog();
+
+builder.Host.UseSerilog((context, loggerConfiguration) =>
+{
+    loggerConfiguration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.WithProperty("Application", "Example")
+        .Enrich.FromLogContext()
+        .WriteTo.Http(
+            requestUri: "http://localhost:8000",
+            queueLimitBytes: null, // Optional: Adjust as needed
+            textFormatter: new EcsTextFormatter<ExtendedEcsDocument>(ecsTextFormatterConfiguration))
+        .WriteTo.Console(Formatters.CreateConsoleTextFormatter(theme: TemplateTheme.Code));
+});
 
 var app = builder.Build();
 
@@ -97,7 +97,7 @@ record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
     public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
 }
 
-public class CustomEcsDocument : Elastic.CommonSchema.EcsDocument
+public class ExtendedEcsDocument : Elastic.CommonSchema.EcsDocument
 {
     public BarclaysData BarclaysData { get; set; }
 
