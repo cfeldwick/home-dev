@@ -1,11 +1,13 @@
 version: '3.9'
 services:
   certs-installer:
-    build: .
-    image: certs-installer-image
+    image: mcr.microsoft.com/dotnet/sdk:7.0
+    # Mount the host script into the container
     volumes:
       - dotnet_data:/root/.dotnet
-    command: ["/usr/local/bin/import-certs.sh"]
+      - ./import-certs.sh:/usr/local/bin/import-certs.sh:ro
+    # Run the script at startup
+    command: ["/bin/bash", "/usr/local/bin/import-certs.sh"]
 
   myservice:
     image: mcr.microsoft.com/dotnet/aspnet:7.0
@@ -13,7 +15,8 @@ services:
       - dotnet_data:/root/.dotnet
     depends_on:
       - certs-installer
-    # If your application needs to use the certs, it can now find them in /root/.dotnet
+    # At this point, myservice has access to /root/.dotnet 
+    # which contains the installed tool and trusted certificates
 
 volumes:
   dotnet_data:
