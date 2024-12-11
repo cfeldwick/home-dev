@@ -1,0 +1,7 @@
+version: '3.9'
+services:
+  myservice:
+    image: mcr.microsoft.com/dotnet/sdk:7.0
+    volumes:
+      - ./import-certs.sh:/usr/local/bin/import-certs.sh:ro
+    command: ["/bin/bash", "-c", "/usr/local/bin/import-certs.sh"]
