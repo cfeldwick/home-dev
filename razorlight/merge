@@ -1,0 +1,26 @@
+public static Dictionary<string, object> MergeDictionaries(Dictionary<string, object> target, Dictionary<string, object> source)
+{
+    foreach (var key in source.Keys)
+    {
+        if (source[key] is JObject sourceNested && target.ContainsKey(key) && target[key] is JObject targetNested)
+        {
+            // Recursively merge nested dictionaries
+            target[key] = MergeDictionaries(
+                targetNested.ToObject<Dictionary<string, object>>()!,
+                sourceNested.ToObject<Dictionary<string, object>>()!
+            );
+        }
+        else if (source[key] is JArray sourceArray && target.ContainsKey(key) && target[key] is JArray targetArray)
+        {
+            // Merge arrays by concatenation
+            var mergedArray = targetArray.Concat(sourceArray).Distinct().ToArray();
+            target[key] = JArray.FromObject(mergedArray);
+        }
+        else
+        {
+            // Overwrite or add new keys
+            target[key] = source[key];
+        }
+    }
+    return target;
+}
