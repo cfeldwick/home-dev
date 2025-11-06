@@ -15,6 +15,7 @@ This repository serves as a personal library of:
 ```
 home-dev/
 ├── angular/          # Angular frontend samples
+├── dotnet-grpc-di/   # .NET 8 gRPC with DI patterns
 ├── elastic/          # Elastic Stack & .NET logging samples
 ├── docker-compose/   # Docker orchestration examples
 ├── selenium/         # Selenium testing & automation
@@ -32,6 +33,26 @@ home-dev/
 - **Dockerfile** - Containerized Angular application setup
 
 **Technologies:** TypeScript, Angular, Jasmine (testing)
+
+---
+
+### 🔷 .NET 8 gRPC with Dependency Injection
+**Location:** `dotnet-grpc-di/`
+
+- **Production-Quality DI Patterns** - ServiceCollectionExtensions with advanced registration patterns
+  - Options pattern with validation (`ValidateDataAnnotations()`, `ValidateOnStart()`)
+  - Idempotent service registration (`TryAddScoped`, `TryAddSingleton`)
+  - Named HttpClient with Polly retry policies
+  - Custom health checks
+- **gRPC Service** - ASP.NET Core gRPC application with Protocol Buffers
+  - GreeterService with dependency-injected services
+  - Minimal hosting pattern (top-level statements)
+- **Comprehensive Tests**
+  - Unit tests for DI container validation
+  - Integration tests with `WebApplicationFactory`
+  - gRPC client testing using `Grpc.Net.Client`
+
+**Technologies:** C#, .NET 8, gRPC, Protocol Buffers, xUnit, FluentAssertions, Polly
 
 ---
 
@@ -89,6 +110,9 @@ To use a sample:
 | Need | Location | Files |
 |------|----------|-------|
 | Angular dialog component | `angular/components/` | `submit-dialog.ts`, `submit-dialog.spec.ts` |
+| .NET 8 gRPC with DI | `dotnet-grpc-di/src/GrpcService/` | `ServiceCollectionExtensions.cs`, `Program.cs` |
+| .NET DI unit tests | `dotnet-grpc-di/tests/` | `ServiceCollectionExtensionsTests.cs` |
+| gRPC integration tests | `dotnet-grpc-di/tests/` | `GrpcServiceIntegrationTests.cs` |
 | .NET structured logging | `elastic/WebApplication/` | `Program.cs`, `appsettings.json` |
 | Mock Elastic server | `elastic/FakeElasticServer/` | `main.py` |
 | Docker multi-service setup | `docker-compose/` | `docker-compose.yml` |
