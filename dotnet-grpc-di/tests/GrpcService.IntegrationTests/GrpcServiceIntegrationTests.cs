@@ -1,11 +1,13 @@
 using FluentAssertions;
 using Grpc.Core;
 using Grpc.Net.Client;
+using GrpcService.IntegrationTests.Fakes;
 using GrpcService.Options;
 using GrpcService.Services;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -13,15 +15,20 @@ namespace GrpcService.IntegrationTests;
 
 /// <summary>
 /// Integration tests for the gRPC service using WebApplicationFactory.
+/// Demonstrates how to replace external services with test doubles (fakes).
 /// </summary>
 public class GrpcServiceIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
+    private readonly FakeExternalServiceClient _fakeExternalService;
 
     public GrpcServiceIntegrationTests(WebApplicationFactory<Program> factory)
     {
         // Enable HTTP/2 without TLS for testing
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+
+        // Create a fake external service that we can control in tests
+        _fakeExternalService = new FakeExternalServiceClient();
 
         _factory = factory.WithWebHostBuilder(builder =>
         {
@@ -40,6 +47,14 @@ public class GrpcServiceIntegrationTests : IClassFixture<WebApplicationFactory<P
                     ["ExternalService:EnableRetry"] = "false",
                     ["ExternalService:MaxRetryAttempts"] = "0"
                 }!);
+            });
+
+            builder.ConfigureServices(services =>
+            {
+                // Replace the real IExternalServiceClient with our fake
+                // This is the key to mocking external services in integration tests
+                services.RemoveAll<IExternalServiceClient>();
+                services.AddSingleton<IExternalServiceClient>(_fakeExternalService);
             });
         });
     }
@@ -281,5 +296,154 @@ public class GrpcServiceIntegrationTests : IClassFixture<WebApplicationFactory<P
         timestamp.Should().NotBeNullOrEmpty();
         DateTime.TryParse(timestamp, out var parsedDate).Should().BeTrue();
         parsedDate.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    // ===== Tests demonstrating fake external service behavior =====
+
+    [Fact]
+    public async Task SayHello_WithKnownNickname_UsesNickname()
+    {
+        // Arrange
+        var channel = CreateChannel();
+        var client = new Greeter.GreeterClient(channel);
+        var request = new HelloRequest { Name = "William" }; // "William" maps to "Bill" in fake service
+
+        // Act
+        var response = await client.SayHelloAsync(request);
+
+        // Assert
+        response.Should().NotBeNull();
+        response.Message.Should().Be("Test Hello, Bill!"); // Should use nickname "Bill" instead of "William"
+        response.Timestamp.Should().NotBeNullOrEmpty();
+        response.Version.Should().Be("1.0.0-test");
+    }
+
+    [Fact]
+    public async Task SayHello_WithUnknownName_UsesOriginalName()
+    {
+        // Arrange
+        var channel = CreateChannel();
+        var client = new Greeter.GreeterClient(channel);
+        var request = new HelloRequest { Name = "Unknown Person" }; // No nickname mapping
+
+        // Act
+        var response = await client.SayHelloAsync(request);
+
+        // Assert
+        response.Should().NotBeNull();
+        response.Message.Should().Be("Test Hello, Unknown Person!"); // Should use original name
+    }
+
+    [Fact]
+    public async Task SayHello_WithCustomNickname_UsesCustomMapping()
+    {
+        // Arrange
+        _fakeExternalService.AddNickname("TestUser", "Tester"); // Add custom test data
+        var channel = CreateChannel();
+        var client = new Greeter.GreeterClient(channel);
+        var request = new HelloRequest { Name = "TestUser" };
+
+        // Act
+        var response = await client.SayHelloAsync(request);
+
+        // Assert
+        response.Should().NotBeNull();
+        response.Message.Should().Be("Test Hello, Tester!");
+    }
+
+    [Theory]
+    [InlineData("Robert", "Bob")]
+    [InlineData("Richard", "Dick")]
+    [InlineData("James", "Jim")]
+    [InlineData("Michael", "Mike")]
+    [InlineData("Elizabeth", "Liz")]
+    public async Task SayHello_WithMultipleNicknames_ReturnsCorrectGreeting(string name, string expectedNickname)
+    {
+        // Arrange
+        var channel = CreateChannel();
+        var client = new Greeter.GreeterClient(channel);
+        var request = new HelloRequest { Name = name };
+
+        // Act
+        var response = await client.SayHelloAsync(request);
+
+        // Assert
+        response.Message.Should().Be($"Test Hello, {expectedNickname}!");
+    }
+
+    [Fact]
+    public async Task SayHelloWithMetadata_WithNickname_UsesNicknameAndIncludesMetadata()
+    {
+        // Arrange
+        var channel = CreateChannel();
+        var client = new Greeter.GreeterClient(channel);
+        var request = new HelloRequest { Name = "Christopher" }; // Maps to "Chris"
+
+        // Act
+        var call = client.SayHelloWithMetadataAsync(request);
+        var response = await call;
+        var trailers = call.GetTrailers();
+
+        // Assert
+        response.Should().NotBeNull();
+        response.Message.Should().Be("Test Hello, Chris!"); // Should use nickname
+        response.Timestamp.Should().NotBeNullOrEmpty();
+        response.Version.Should().Be("1.0.0-test");
+
+        // Verify metadata in response trailers
+        trailers.Should().Contain(h => h.Key == "x-greeting-timestamp");
+        trailers.Should().Contain(h => h.Key == "x-app-version");
+    }
+
+    [Fact]
+    public async Task FakeExternalService_CanBeConfiguredPerTest()
+    {
+        // This test demonstrates how to configure the fake service for specific test scenarios
+
+        // Arrange - Setup custom nickname for this test
+        _fakeExternalService.AddNickname("Alice", "Ally");
+        var channel = CreateChannel();
+        var client = new Greeter.GreeterClient(channel);
+
+        // Act
+        var response = await client.SayHelloAsync(new HelloRequest { Name = "Alice" });
+
+        // Assert
+        response.Message.Should().Be("Test Hello, Ally!");
+
+        // Cleanup - Important: Clear custom data so it doesn't affect other tests
+        // Note: In a real test suite, you might want to use IAsyncLifetime or similar
+        // to properly isolate test data
+    }
+
+    [Fact]
+    public async Task FakeExternalService_HealthCheck_CanBeControlled()
+    {
+        // Arrange - Set the fake service to unhealthy
+        _fakeExternalService.SetHealthy(false);
+
+        using var scope = _factory.Services.CreateScope();
+        var externalServiceClient = scope.ServiceProvider.GetRequiredService<IExternalServiceClient>();
+
+        // Act
+        var isHealthy = await externalServiceClient.HealthCheckAsync();
+
+        // Assert
+        isHealthy.Should().BeFalse();
+
+        // Cleanup - Reset to healthy for other tests
+        _fakeExternalService.SetHealthy(true);
+    }
+
+    [Fact]
+    public void FakeExternalService_IsUsedInDI()
+    {
+        // Arrange & Act
+        using var scope = _factory.Services.CreateScope();
+        var externalServiceClient = scope.ServiceProvider.GetRequiredService<IExternalServiceClient>();
+
+        // Assert - Verify that the DI container is using our fake
+        externalServiceClient.Should().BeOfType<FakeExternalServiceClient>();
+        externalServiceClient.Should().BeSameAs(_fakeExternalService);
     }
 }

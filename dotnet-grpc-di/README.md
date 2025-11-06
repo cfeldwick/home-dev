@@ -43,6 +43,8 @@ dotnet-grpc-di/
     │   ├── ServiceCollectionExtensionsTests.cs   # Unit tests
     │   └── GrpcService.UnitTests.csproj
     └── GrpcService.IntegrationTests/
+        ├── Fakes/
+        │   └── FakeExternalServiceClient.cs      # Test double for external service
         ├── GrpcServiceIntegrationTests.cs        # Integration tests
         └── GrpcService.IntegrationTests.csproj
 ```
@@ -176,6 +178,100 @@ dotnet test --logger "console;verbosity=detailed"
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
+## Testing with Fakes/Mocks
+
+This example demonstrates **production-quality patterns for replacing external dependencies in integration tests** using the **Test Double pattern** (specifically, a Fake).
+
+### The Problem
+
+In integration tests, you often need to test your application without calling real external services because:
+- External services may not be available in test environments
+- They may be slow, unreliable, or expensive to call
+- You want deterministic test results
+- You need to test failure scenarios
+
+### The Solution: FakeExternalServiceClient
+
+The example includes `FakeExternalServiceClient` in the `tests/.../Fakes` directory that implements `IExternalServiceClient` with controllable behavior.
+
+#### Key Features:
+
+1. **Pre-configured test data**: Contains a dictionary of nickname mappings
+2. **Configurable behavior**: Methods to add nicknames, set health status, etc.
+3. **Same interface**: Implements `IExternalServiceClient` so it's a drop-in replacement
+
+#### Replacing Services in Integration Tests
+
+In `GrpcServiceIntegrationTests.cs`, the fake is registered using `ConfigureServices`:
+
+```csharp
+public GrpcServiceIntegrationTests(WebApplicationFactory<Program> factory)
+{
+    // Create the fake external service
+    _fakeExternalService = new FakeExternalServiceClient();
+
+    _factory = factory.WithWebHostBuilder(builder =>
+    {
+        builder.ConfigureServices(services =>
+        {
+            // Remove the real service and add the fake
+            services.RemoveAll<IExternalServiceClient>();
+            services.AddSingleton<IExternalServiceClient>(_fakeExternalService);
+        });
+    });
+}
+```
+
+#### Writing Tests with the Fake
+
+The fake can be controlled per test:
+
+```csharp
+[Fact]
+public async Task SayHello_WithKnownNickname_UsesNickname()
+{
+    // The fake has pre-configured nicknames: "William" -> "Bill"
+    var request = new HelloRequest { Name = "William" };
+    var response = await client.SayHelloAsync(request);
+
+    // Asserts that the service used the nickname from the fake
+    response.Message.Should().Be("Test Hello, Bill!");
+}
+
+[Fact]
+public async Task SayHello_WithCustomNickname_UsesCustomMapping()
+{
+    // Configure fake behavior for this specific test
+    _fakeExternalService.AddNickname("TestUser", "Tester");
+
+    var request = new HelloRequest { Name = "TestUser" };
+    var response = await client.SayHelloAsync(request);
+
+    response.Message.Should().Be("Test Hello, Tester!");
+}
+```
+
+### Benefits of This Pattern
+
+✅ **Fast**: No network calls to external services
+✅ **Reliable**: Deterministic behavior in tests
+✅ **Flexible**: Easy to test different scenarios (success, failure, edge cases)
+✅ **Isolated**: Tests don't depend on external service availability
+✅ **Realistic**: Tests still go through the full application pipeline
+
+### Alternative Approaches
+
+While this example uses a **Fake** (a lightweight implementation with working logic), you could also use:
+
+- **Mocks** (e.g., `Moq`, `NSubstitute`) for more dynamic test doubles
+- **Stubs** for simpler scenarios where you just return fixed values
+- **Test containers** (e.g., Testcontainers) for more realistic integration tests with actual services
+
+The Fake pattern shown here is ideal for:
+- Services with complex behavior that you want to control
+- Scenarios where you need to verify interactions across multiple tests
+- When you want readable test code without mocking framework syntax
+
 ## Configuration
 
 ### appsettings.json
@@ -278,8 +374,16 @@ services.AddHealthChecks()
    - Unit tests verify DI configuration
    - Integration tests verify end-to-end behavior
    - Use `WebApplicationFactory` for in-memory testing
+   - **Fake/Mock external dependencies** using `services.RemoveAll<T>()` and `services.AddSingleton<T>(fake)`
+   - Test doubles (Fakes) provide controlled, deterministic behavior
 
-5. **gRPC in .NET**
+5. **Mocking/Faking External Services**
+   - Use the same interface (`IExternalServiceClient`)
+   - Replace real implementation with test double in `ConfigureServices`
+   - Control behavior per test (add test data, simulate failures)
+   - No external dependencies in tests = fast, reliable tests
+
+6. **gRPC in .NET**
    - Protocol Buffers for service contracts
    - HTTP/2 for transport
    - Built-in support in ASP.NET Core
@@ -297,6 +401,8 @@ services.AddHealthChecks()
 ✅ Retry policies with Polly
 ✅ Health checks for monitoring
 ✅ Full test coverage (unit + integration)
+✅ Test doubles (Fakes) for external dependencies
+✅ Service replacement in integration tests using `RemoveAll` and `AddSingleton`
 
 ## References
 

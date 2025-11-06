@@ -39,4 +39,41 @@ public sealed class ExternalServiceClient : IExternalServiceClient
             return false;
         }
     }
+
+    public async Task<string?> GetNicknameAsync(string name, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            _logger.LogWarning("Attempted to get nickname with null or empty name");
+            return null;
+        }
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient("ExternalService");
+
+            var response = await client.GetAsync($"/api/nicknames/{Uri.EscapeDataString(name)}", cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation(
+                    "Nickname not found for {Name}: {StatusCode}",
+                    name,
+                    response.StatusCode);
+
+                return null;
+            }
+
+            var nickname = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            _logger.LogInformation("Found nickname for {Name}: {Nickname}", name, nickname);
+
+            return nickname;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get nickname for {Name}", name);
+            return null;
+        }
+    }
 }
