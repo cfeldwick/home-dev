@@ -1,0 +1,81 @@
+<Project>
+  <Target Name="GenerateQuantVersion" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <QuantVersionFile>$(IntermediateOutputPath)QuantVersion.g.cs</QuantVersionFile>
+      <QuantVersionContent>
+<![CDATA[namespace Quant.Shared { public static class QuantVersion { public const int Value = $(QuantLibVersion); } }]]>
+      </QuantVersionContent>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(QuantVersionFile)" Lines="$(QuantVersionContent)" Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(QuantVersionFile)" />
+      <FileWrites Include="$(QuantVersionFile)" />
+    </ItemGroup>
+  </Target>
+
+  <UsingTask TaskName="HttpDownload" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Url ParameterType="System.String" Required="true" />
+      <DestinationPath ParameterType="System.String" Required="true" />
+      <AuthorizationToken ParameterType="System.String" Required="false" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Net.Http" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Threading.Tasks" />
+      <Code Type="Fragment" Language="cs">
+<![CDATA[
+        var task = Task.Run(async () =>
+        {
+            using (var client = new HttpClient())
+            {
+                if (!string.IsNullOrEmpty(AuthorizationToken))
+                {
+                    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + AuthorizationToken);
+                }
+                var response = await client.GetAsync(Url);
+                response.EnsureSuccessStatusCode();
+                using (var fs = new FileStream(DestinationPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    await response.Content.CopyToAsync(fs);
+                }
+            }
+        });
+        task.Wait();
+]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="DownloadQuantOnRestore" Condition="'$(DownloadQuant)' == 'true'" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <DownloadRequired>false</DownloadRequired>
+      <DownloadRequired Condition="!Exists('$(QuantLibStamp)')">true</DownloadRequired>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(QuantLibBaseDir)" Condition="$(DownloadRequired)" />
+
+    <HttpDownload
+      Url="$(QuantLibUrl)"
+      DestinationPath="$(QuantLibTarBz2)"
+      AuthorizationToken="$(QuantRepoToken)"
+      Condition="$(DownloadRequired) And !Exists('$(QuantLibTarBz2)')" />
+
+    <Message Text="Extracting quant library $(QuantLibVersion)..." Importance="high" Condition="$(DownloadRequired)" />
+
+    <Exec Command="tar -xjf &quot;$(QuantLibTarBz2)&quot; -C &quot;$(QuantLibBaseDir)&quot;"
+          Condition="$(DownloadRequired)"
+          ContinueOnError="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="TarExitCode1" />
+    </Exec>
+
+    <Exec Command="tar --bzip2 -xf &quot;$(QuantLibTarBz2)&quot; -C &quot;$(QuantLibBaseDir)&quot;"
+          Condition="$(DownloadRequired) And '$(TarExitCode1)' != '0'" />
+
+    <Touch Files="$(QuantLibStamp)" AlwaysCreate="true" Condition="$(DownloadRequired)" />
+
+    <Message Text="QUANT_VERSION=$(QuantLibVersion)" Importance="high" Condition="$(DownloadRequired)" />
+    <Message Text="QUANT_HOME=$(QuantLibDir)" Importance="high" Condition="$(DownloadRequired)" />
+  </Target>
+</Project>

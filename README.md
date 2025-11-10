@@ -19,6 +19,7 @@ home-dev/
 ├── docker-compose/   # Docker orchestration examples
 ├── selenium/         # Selenium testing & automation
 ├── razorlight/       # Miscellaneous utilities
+├── msbuild-quant/    # MSBuild quant library system
 └── docs/             # Documentation & requirements
 ```
 
@@ -74,6 +75,18 @@ home-dev/
 
 ---
 
+### ⚙️ MSBuild Quant Library System
+**Location:** `msbuild-quant/`
+
+- **Version-Managed Download System** - MSBuild-based on-demand library download and caching
+  - `QuantVersion.props` - Single source of truth for library version
+  - `Directory.Build.props` - Property definitions and environment configuration
+  - `Directory.Build.targets` - Download automation, extraction, and code generation
+
+**Technologies:** MSBuild, .NET, XML
+
+---
+
 ## Usage
 
 Browse to the relevant directory and examine the code samples. Each major section may contain its own README with additional context.
@@ -93,6 +106,7 @@ To use a sample:
 | Mock Elastic server | `elastic/FakeElasticServer/` | `main.py` |
 | Docker multi-service setup | `docker-compose/` | `docker-compose.yml` |
 | Selenium automation | `selenium/` | `*.ipynb` |
+| MSBuild library system | `msbuild-quant/` | `QuantVersion.props`, `Directory.Build.*` |
 
 ## Contributing
 

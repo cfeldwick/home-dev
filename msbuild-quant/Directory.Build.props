@@ -1,0 +1,12 @@
+<Project>
+  <Import Project="QuantVersion.props" />
+
+  <PropertyGroup>
+    <QuantLibBaseDir>$(MSBuildThisFileDirectory).quant</QuantLibBaseDir>
+    <QuantLibDir>$(QuantLibBaseDir)\quant-$(QuantLibVersion)</QuantLibDir>
+    <QuantLibTarBz2>$(QuantLibBaseDir)\quant-$(QuantLibVersion).tar.bz2</QuantLibTarBz2>
+    <QuantLibStamp>$(QuantLibDir)\_ok.stamp</QuantLibStamp>
+    <QuantLibUrl>https://repo.example.com/quant/$(QuantLibVersion)/quant-$(QuantLibVersion).tar.bz2</QuantLibUrl>
+    <QuantRepoToken>$([System.Environment]::GetEnvironmentVariable('QUANT_REPO_TOKEN'))</QuantRepoToken>
+  </PropertyGroup>
+</Project>
