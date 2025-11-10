@@ -1,0 +1,140 @@
+stages:
+  - download
+  - build
+  - test
+  - package
+
+variables:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  QUANT_CACHE_KEY: "quant-${CI_COMMIT_REF_SLUG}"
+
+# Download quant library once and cache it
+download-quant:
+  stage: download
+  image: mcr.microsoft.com/dotnet/sdk:9.0
+  script:
+    - echo "Downloading quant library version from QuantVersion.props..."
+    # Download the quant library using MSBuild
+    - dotnet build -p:DownloadQuant=true -t:DownloadQuantOnRestore /p:Configuration=Release
+    # Export environment variables for subsequent jobs
+    - export QUANT_VERSION=$(grep -oP '(?<=<QuantLibVersion>)\d+(?=</QuantLibVersion>)' QuantVersion.props)
+    - echo "QUANT_VERSION=$QUANT_VERSION"
+    - echo "QUANT_HOME=$(pwd)/.quant/quant-$QUANT_VERSION"
+    # Verify extraction was successful
+    - test -f .quant/quant-$QUANT_VERSION/_ok.stamp || (echo "Quant library extraction failed" && exit 1)
+  cache:
+    key: $QUANT_CACHE_KEY
+    paths:
+      - .quant/
+  artifacts:
+    paths:
+      - .quant/
+    expire_in: 1 hour
+  only:
+    - branches
+    - tags
+
+# Build the application with quant library available
+build:
+  stage: build
+  image: mcr.microsoft.com/dotnet/sdk:9.0
+  dependencies:
+    - download-quant
+  script:
+    - echo "Building ASP.NET gRPC application..."
+    - dotnet restore
+    - dotnet build --no-restore -c Release
+  cache:
+    key: $QUANT_CACHE_KEY
+    paths:
+      - .quant/
+    policy: pull
+  artifacts:
+    paths:
+      - "*/bin/Release/"
+      - "*/obj/"
+      - .quant/
+    expire_in: 1 hour
+  only:
+    - branches
+    - tags
+
+# Run tests with quant library
+test:
+  stage: test
+  image: mcr.microsoft.com/dotnet/sdk:9.0
+  dependencies:
+    - build
+  script:
+    - echo "Running tests with quant library..."
+    # Set QUANT_HOME environment variable for tests
+    - export QUANT_VERSION=$(grep -oP '(?<=<QuantLibVersion>)\d+(?=</QuantLibVersion>)' QuantVersion.props)
+    - export QUANT_HOME=$(pwd)/.quant/quant-$QUANT_VERSION
+    - echo "QUANT_HOME=$QUANT_HOME"
+    # Run tests
+    - dotnet test --no-build -c Release --logger "trx;LogFileName=test-results.trx" --logger "console;verbosity=detailed"
+  cache:
+    key: $QUANT_CACHE_KEY
+    paths:
+      - .quant/
+    policy: pull
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - "**/*test-results.trx"
+    paths:
+      - "**/*test-results.trx"
+    expire_in: 30 days
+  only:
+    - branches
+    - tags
+
+# Build Docker image with quant library
+package:docker:
+  stage: package
+  image: docker:24
+  services:
+    - docker:24-dind
+  dependencies:
+    - build
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - echo "Building Docker image with quant library..."
+    # Build the Docker image
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA -t $CI_REGISTRY_IMAGE:latest -f Dockerfile .
+    # Push to registry
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - docker push $CI_REGISTRY_IMAGE:latest
+  cache:
+    key: $QUANT_CACHE_KEY
+    paths:
+      - .quant/
+    policy: pull
+  only:
+    - main
+    - master
+    - tags
+
+# Deployment example (customize for your environment)
+deploy:staging:
+  stage: package
+  image: alpine:latest
+  dependencies:
+    - package:docker
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - echo "Deploying to staging environment..."
+    - echo "Image: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+    # Add your deployment commands here
+    # Example: kubectl set image deployment/myapp myapp=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  environment:
+    name: staging
+    url: https://staging.example.com
+  only:
+    - main
+    - master
+  when: manual

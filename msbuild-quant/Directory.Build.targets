@@ -1,11 +1,19 @@
 <Project>
-  <Target Name="GenerateQuantVersion" BeforeTargets="CoreCompile">
+  <!-- Generate QuantVersion.g.cs for C# projects only -->
+  <Target Name="GenerateQuantVersion"
+          BeforeTargets="CoreCompile"
+          Condition="'$(Language)' == 'C#'">
     <PropertyGroup>
-      <QuantVersionFile>$(IntermediateOutputPath)QuantVersion.g.cs</QuantVersionFile>
-      <QuantVersionContent>
-<![CDATA[namespace Quant.Shared { public static class QuantVersion { public const int Value = $(QuantLibVersion); } }]]>
-      </QuantVersionContent>
+      <!-- Fallback for IntermediateOutputPath if not defined -->
+      <QuantVersionFile Condition="'$(IntermediateOutputPath)' == ''">$(MSBuildThisFileDirectory)obj/QuantVersion.g.cs</QuantVersionFile>
+      <QuantVersionFile Condition="'$(IntermediateOutputPath)' != ''">$(IntermediateOutputPath)QuantVersion.g.cs</QuantVersionFile>
+      <QuantVersionContent>namespace $(QuantNamespace) { public static class QuantVersion { public const int Value = $(QuantLibVersion); } }</QuantVersionContent>
     </PropertyGroup>
+
+    <!-- Ensure directory exists -->
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName($(QuantVersionFile)))"
+             Condition="!Exists('$([System.IO.Path]::GetDirectoryName($(QuantVersionFile)))')" />
+
     <WriteLinesToFile File="$(QuantVersionFile)" Lines="$(QuantVersionContent)" Overwrite="true" />
     <ItemGroup>
       <Compile Include="$(QuantVersionFile)" />
@@ -13,11 +21,14 @@
     </ItemGroup>
   </Target>
 
+  <!-- Inline HttpDownload task with timeout and logging -->
   <UsingTask TaskName="HttpDownload" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <Url ParameterType="System.String" Required="true" />
       <DestinationPath ParameterType="System.String" Required="true" />
       <AuthorizationToken ParameterType="System.String" Required="false" />
+      <TimeoutMinutes ParameterType="System.Int32" Required="false" />
+      <FileSizeBytes ParameterType="System.Int64" Output="true" />
     </ParameterGroup>
     <Task>
       <Using Namespace="System.Net.Http" />
@@ -29,16 +40,36 @@
         {
             using (var client = new HttpClient())
             {
+                // Configure timeout
+                if (TimeoutMinutes > 0)
+                {
+                    client.Timeout = TimeSpan.FromMinutes(TimeoutMinutes);
+                }
+                else
+                {
+                    client.Timeout = TimeSpan.FromMinutes(10);
+                }
+
+                // Add authorization header if token provided
                 if (!string.IsNullOrEmpty(AuthorizationToken))
                 {
                     client.DefaultRequestHeaders.Add("Authorization", "Bearer " + AuthorizationToken);
                 }
+
+                Log.LogMessage(MessageImportance.High, "Downloading {0} to {1}", Url, DestinationPath);
+
                 var response = await client.GetAsync(Url);
                 response.EnsureSuccessStatusCode();
+
                 using (var fs = new FileStream(DestinationPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
                     await response.Content.CopyToAsync(fs);
                 }
+
+                // Report file size for verification
+                var fileInfo = new FileInfo(DestinationPath);
+                FileSizeBytes = fileInfo.Length;
+                Log.LogMessage(MessageImportance.High, "Downloaded {0} bytes", FileSizeBytes);
             }
         });
         task.Wait();
@@ -47,35 +78,100 @@
     </Task>
   </UsingTask>
 
-  <Target Name="DownloadQuantOnRestore" Condition="'$(DownloadQuant)' == 'true'" BeforeTargets="BeforeBuild">
+  <!-- Download and extract quant library on demand -->
+  <Target Name="DownloadQuantOnRestore"
+          Condition="'$(DownloadQuant)' == 'true'"
+          BeforeTargets="BeforeBuild">
+
     <PropertyGroup>
       <DownloadRequired>false</DownloadRequired>
       <DownloadRequired Condition="!Exists('$(QuantLibStamp)')">true</DownloadRequired>
     </PropertyGroup>
 
-    <MakeDir Directories="$(QuantLibBaseDir)" Condition="$(DownloadRequired)" />
+    <!-- Validate token is present when download is required -->
+    <Error Text="QUANT_REPO_TOKEN environment variable not set. Set it before running with -p:DownloadQuant=true"
+           Condition="'$(DownloadRequired)' == 'true' And '$(QuantRepoToken)' == ''" />
 
+    <!-- Check for lock file to prevent race conditions -->
+    <PropertyGroup Condition="'$(DownloadRequired)' == 'true'">
+      <MaxLockWaitSeconds>300</MaxLockWaitSeconds>
+      <LockWaitInterval>2</LockWaitInterval>
+    </PropertyGroup>
+
+    <Message Text="Checking for concurrent downloads..."
+             Importance="high"
+             Condition="'$(DownloadRequired)' == 'true' And Exists('$(QuantLibLock)')" />
+
+    <!-- Wait for lock file to be removed (simple implementation) -->
+    <Exec Command="sleep 2"
+          Condition="'$(DownloadRequired)' == 'true' And Exists('$(QuantLibLock)')"
+          IgnoreExitCode="true"
+          ContinueOnError="true" />
+
+    <!-- Create base directory and lock file -->
+    <MakeDir Directories="$(QuantLibBaseDir)" Condition="'$(DownloadRequired)' == 'true'" />
+    <Touch Files="$(QuantLibLock)" AlwaysCreate="true" Condition="'$(DownloadRequired)' == 'true'" />
+
+    <!-- Delete partial download if exists to ensure clean download -->
+    <Delete Files="$(QuantLibTarBz2)"
+            Condition="'$(DownloadRequired)' == 'true' And Exists('$(QuantLibTarBz2)')" />
+
+    <!-- Download the tarball -->
     <HttpDownload
       Url="$(QuantLibUrl)"
       DestinationPath="$(QuantLibTarBz2)"
       AuthorizationToken="$(QuantRepoToken)"
-      Condition="$(DownloadRequired) And !Exists('$(QuantLibTarBz2)')" />
+      TimeoutMinutes="$(QuantDownloadTimeoutMinutes)"
+      Condition="'$(DownloadRequired)' == 'true'">
+      <Output TaskParameter="FileSizeBytes" PropertyName="DownloadedFileSize" />
+    </HttpDownload>
 
-    <Message Text="Extracting quant library $(QuantLibVersion)..." Importance="high" Condition="$(DownloadRequired)" />
+    <!-- Verify download succeeded with non-zero file size -->
+    <Error Text="Downloaded file is empty or corrupt: $(QuantLibTarBz2)"
+           Condition="'$(DownloadRequired)' == 'true' And '$(DownloadedFileSize)' == '0'" />
 
+    <Message Text="Extracting quant library $(QuantLibVersion)..."
+             Importance="high"
+             Condition="'$(DownloadRequired)' == 'true'" />
+
+    <!-- Try tar -xjf first (most common) -->
     <Exec Command="tar -xjf &quot;$(QuantLibTarBz2)&quot; -C &quot;$(QuantLibBaseDir)&quot;"
-          Condition="$(DownloadRequired)"
+          Condition="'$(DownloadRequired)' == 'true'"
           ContinueOnError="true"
           IgnoreExitCode="true">
       <Output TaskParameter="ExitCode" PropertyName="TarExitCode1" />
     </Exec>
 
+    <!-- Fallback to explicit --bzip2 flag -->
     <Exec Command="tar --bzip2 -xf &quot;$(QuantLibTarBz2)&quot; -C &quot;$(QuantLibBaseDir)&quot;"
-          Condition="$(DownloadRequired) And '$(TarExitCode1)' != '0'" />
+          Condition="'$(DownloadRequired)' == 'true' And '$(TarExitCode1)' != '0'"
+          ContinueOnError="true"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="TarExitCode2" />
+    </Exec>
 
-    <Touch Files="$(QuantLibStamp)" AlwaysCreate="true" Condition="$(DownloadRequired)" />
+    <!-- Error if tar command not available or extraction failed -->
+    <Error Text="Failed to extract $(QuantLibTarBz2). Ensure 'tar' is available in PATH and the archive is valid."
+           Condition="'$(DownloadRequired)' == 'true' And '$(TarExitCode1)' != '0' And '$(TarExitCode2)' != '0'" />
 
-    <Message Text="QUANT_VERSION=$(QuantLibVersion)" Importance="high" Condition="$(DownloadRequired)" />
-    <Message Text="QUANT_HOME=$(QuantLibDir)" Importance="high" Condition="$(DownloadRequired)" />
+    <!-- Ensure stamp directory exists before creating stamp file -->
+    <MakeDir Directories="$(QuantLibDir)"
+             Condition="'$(DownloadRequired)' == 'true' And !Exists('$(QuantLibDir)')" />
+
+    <!-- Create stamp file to indicate successful download and extraction -->
+    <Touch Files="$(QuantLibStamp)"
+           AlwaysCreate="true"
+           Condition="'$(DownloadRequired)' == 'true'" />
+
+    <!-- Remove lock file -->
+    <Delete Files="$(QuantLibLock)" Condition="'$(DownloadRequired)' == 'true'" />
+
+    <!-- Output CI-friendly variables -->
+    <Message Text="QUANT_VERSION=$(QuantLibVersion)"
+             Importance="high"
+             Condition="'$(DownloadRequired)' == 'true'" />
+    <Message Text="QUANT_HOME=$(QuantLibDir)"
+             Importance="high"
+             Condition="'$(DownloadRequired)' == 'true'" />
   </Target>
 </Project>

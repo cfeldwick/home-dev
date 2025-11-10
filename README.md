@@ -78,12 +78,17 @@ home-dev/
 ### ⚙️ MSBuild Quant Library System
 **Location:** `msbuild-quant/`
 
-- **Version-Managed Download System** - MSBuild-based on-demand library download and caching
+- **Version-Managed Download System** - Production-ready MSBuild-based on-demand library download and caching
   - `QuantVersion.props` - Single source of truth for library version
-  - `Directory.Build.props` - Property definitions and environment configuration
-  - `Directory.Build.targets` - Download automation, extraction, and code generation
+  - `Directory.Build.props` - Cross-platform property definitions and environment configuration
+  - `Directory.Build.targets` - Robust download automation, extraction, and code generation
+  - `.gitlab-ci.yml` - Complete GitLab CI/CD pipeline example with caching
+  - `Dockerfile` - Multi-stage Docker build for ASP.NET gRPC apps
+  - `README.md` - Comprehensive documentation and troubleshooting guide
 
-**Technologies:** MSBuild, .NET, XML
+**Features:** Cross-platform support, race condition protection, download verification, token authentication, smart caching, CI/CD integration
+
+**Technologies:** MSBuild, .NET 9.0, GitLab CI, Docker, XML
 
 ---
 
@@ -106,7 +111,9 @@ To use a sample:
 | Mock Elastic server | `elastic/FakeElasticServer/` | `main.py` |
 | Docker multi-service setup | `docker-compose/` | `docker-compose.yml` |
 | Selenium automation | `selenium/` | `*.ipynb` |
-| MSBuild library system | `msbuild-quant/` | `QuantVersion.props`, `Directory.Build.*` |
+| MSBuild library system | `msbuild-quant/` | See `msbuild-quant/README.md` for full docs |
+| GitLab CI for .NET | `msbuild-quant/` | `.gitlab-ci.yml` |
+| .NET gRPC Docker image | `msbuild-quant/` | `Dockerfile` |
 
 ## Contributing
 

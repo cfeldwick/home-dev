@@ -2,11 +2,19 @@
   <Import Project="QuantVersion.props" />
 
   <PropertyGroup>
+    <!-- Configurable namespace for generated code -->
+    <QuantNamespace Condition="'$(QuantNamespace)' == ''">Quant.Shared</QuantNamespace>
+
+    <!-- Cross-platform path configuration using forward slashes -->
     <QuantLibBaseDir>$(MSBuildThisFileDirectory).quant</QuantLibBaseDir>
-    <QuantLibDir>$(QuantLibBaseDir)\quant-$(QuantLibVersion)</QuantLibDir>
-    <QuantLibTarBz2>$(QuantLibBaseDir)\quant-$(QuantLibVersion).tar.bz2</QuantLibTarBz2>
-    <QuantLibStamp>$(QuantLibDir)\_ok.stamp</QuantLibStamp>
+    <QuantLibDir>$(QuantLibBaseDir)/quant-$(QuantLibVersion)</QuantLibDir>
+    <QuantLibTarBz2>$(QuantLibBaseDir)/quant-$(QuantLibVersion).tar.bz2</QuantLibTarBz2>
+    <QuantLibStamp>$(QuantLibDir)/_ok.stamp</QuantLibStamp>
+    <QuantLibLock>$(QuantLibBaseDir)/_download.lock</QuantLibLock>
+
+    <!-- Download configuration -->
     <QuantLibUrl>https://repo.example.com/quant/$(QuantLibVersion)/quant-$(QuantLibVersion).tar.bz2</QuantLibUrl>
     <QuantRepoToken>$([System.Environment]::GetEnvironmentVariable('QUANT_REPO_TOKEN'))</QuantRepoToken>
+    <QuantDownloadTimeoutMinutes Condition="'$(QuantDownloadTimeoutMinutes)' == ''">10</QuantDownloadTimeoutMinutes>
   </PropertyGroup>
 </Project>

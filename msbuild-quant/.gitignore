@@ -1,0 +1,9 @@
+# Quant library cache - never commit downloaded libraries
+.quant/
+
+# Build outputs
+bin/
+obj/
+
+# Generated version file
+**/QuantVersion.g.cs
