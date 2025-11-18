@@ -40,10 +40,19 @@ A sleek, modern browser-based regex testing tool that provides real-time visual 
 
 ## Usage
 
+### Live Demo
+
+This tool is automatically deployed to GitHub Pages whenever changes are pushed to the main branch.
+
+**Access the live version:** `https://[your-username].github.io/home-dev/`
+
+> **Note**: After enabling GitHub Pages in your repository settings, the URL will be automatically available. The deployment workflow is already configured in `.github/workflows/deploy-regex-tester.yml`.
+
 ### Getting Started
 
 1. **Open the Tool**
-   - Simply open `index.html` in any modern web browser
+   - Use the live GitHub Pages URL (see above)
+   - Or simply open `index.html` in any modern web browser
    - No installation or build process required
 
 2. **Enter Your Regex Pattern**
@@ -150,6 +159,31 @@ regex-tester/
 ├── index.html          # Complete standalone application
 └── README.md          # This file
 ```
+
+## Deployment
+
+### GitHub Pages Deployment
+
+This project includes a GitHub Actions workflow that automatically deploys the regex tester to GitHub Pages.
+
+**Workflow Location:** `.github/workflows/deploy-regex-tester.yml`
+
+**Triggers:**
+- Automatically on push to `main` branch when `regex-tester/` files change
+- Manually via the Actions tab in GitHub (workflow_dispatch)
+
+**Setup Instructions:**
+1. Go to your repository Settings → Pages
+2. Under "Source", select "GitHub Actions"
+3. Push changes to main branch or manually trigger the workflow
+4. Your site will be available at `https://[username].github.io/home-dev/`
+
+**What the workflow does:**
+1. Checks out the repository
+2. Uploads the `regex-tester/` directory as a Pages artifact
+3. Deploys the artifact to GitHub Pages
+
+The workflow uses the modern GitHub Pages deployment method with artifacts, ensuring secure and efficient deployments.
 
 ## Use Cases
 
