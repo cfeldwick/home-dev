@@ -18,6 +18,7 @@ home-dev/
 ├── elastic/          # Elastic Stack & .NET logging samples
 ├── docker-compose/   # Docker orchestration examples
 ├── selenium/         # Selenium testing & automation
+├── regex-tester/     # Browser-based regex testing tool
 ├── razorlight/       # Miscellaneous utilities
 └── docs/             # Documentation & requirements
 ```
@@ -67,6 +68,22 @@ home-dev/
 
 ---
 
+### 🔍 Regex Tester
+**Location:** `regex-tester/`
+
+- **Browser-based Regex Tool** - Interactive regex pattern testing with real-time visual feedback
+  - Dynamic table display with columns for each capture group
+  - Named and numbered capture group support
+  - Live regex validation with helpful tooltips
+  - Syntax error highlighting and analysis
+  - Regex flags support (g, i, m, s)
+  - Modern, responsive UI with gradient design
+  - No backend required - runs entirely in browser
+
+**Technologies:** HTML5, CSS3, Vanilla JavaScript
+
+---
+
 ### 🔧 Utilities
 **Location:** `razorlight/`
 
@@ -93,6 +110,7 @@ To use a sample:
 | Mock Elastic server | `elastic/FakeElasticServer/` | `main.py` |
 | Docker multi-service setup | `docker-compose/` | `docker-compose.yml` |
 | Selenium automation | `selenium/` | `*.ipynb` |
+| Regex pattern testing | `regex-tester/` | `index.html` |
 
 ## Contributing
 
