@@ -1,0 +1,87 @@
+[
+  {
+    "testCaseId": "SYN-001",
+    "description": "Standard 5-year corporate bond, trading at par",
+    "bondParameters": {
+      "cusip": "SYNTH00001",
+      "couponRate": 5.0,
+      "maturityDate": "2029-06-15",
+      "faceValue": 100,
+      "frequency": 2,
+      "dayCountConvention": "30/360"
+    },
+    "price": 100.0,
+    "settlementDate": "2024-06-15",
+    "source": "synthetic",
+    "tags": ["par-bond", "corporate", "5-year"],
+    "createdAt": "2024-01-15T10:00:00Z"
+  },
+  {
+    "testCaseId": "SYN-002",
+    "description": "Premium bond - high coupon trading above par",
+    "bondParameters": {
+      "cusip": "SYNTH00002",
+      "couponRate": 7.5,
+      "maturityDate": "2027-12-01",
+      "faceValue": 100,
+      "frequency": 2,
+      "dayCountConvention": "30/360"
+    },
+    "price": 108.50,
+    "settlementDate": "2024-06-15",
+    "source": "synthetic",
+    "tags": ["premium-bond", "high-coupon"],
+    "createdAt": "2024-01-15T10:00:00Z"
+  },
+  {
+    "testCaseId": "SYN-003",
+    "description": "Discount bond - low coupon trading below par",
+    "bondParameters": {
+      "cusip": "SYNTH00003",
+      "couponRate": 2.5,
+      "maturityDate": "2030-03-15",
+      "faceValue": 100,
+      "frequency": 2,
+      "dayCountConvention": "30/360"
+    },
+    "price": 92.75,
+    "settlementDate": "2024-06-15",
+    "source": "synthetic",
+    "tags": ["discount-bond", "low-coupon"],
+    "createdAt": "2024-01-15T10:00:00Z"
+  },
+  {
+    "testCaseId": "SYN-004",
+    "description": "Short-duration bond near maturity",
+    "bondParameters": {
+      "cusip": "SYNTH00004",
+      "couponRate": 4.0,
+      "maturityDate": "2025-06-15",
+      "faceValue": 100,
+      "frequency": 4,
+      "dayCountConvention": "ACT/360"
+    },
+    "price": 99.50,
+    "settlementDate": "2024-06-15",
+    "source": "synthetic",
+    "tags": ["short-duration", "quarterly-coupon"],
+    "createdAt": "2024-01-15T10:00:00Z"
+  },
+  {
+    "testCaseId": "SYN-005",
+    "description": "Long-duration bond with high yield sensitivity",
+    "bondParameters": {
+      "cusip": "SYNTH00005",
+      "couponRate": 3.25,
+      "maturityDate": "2044-09-01",
+      "faceValue": 100,
+      "frequency": 2,
+      "dayCountConvention": "30/360"
+    },
+    "price": 85.00,
+    "settlementDate": "2024-06-15",
+    "source": "synthetic",
+    "tags": ["long-duration", "high-sensitivity", "20-year"],
+    "createdAt": "2024-01-15T10:00:00Z"
+  }
+]

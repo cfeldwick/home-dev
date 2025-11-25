@@ -1,0 +1,107 @@
+[
+  {
+    "correlationId": "abc123def456",
+    "eventId": 9001,
+    "operation": "CalculateYield",
+    "input": {
+      "bondParameters": {
+        "cusip": "912828XY2",
+        "couponRate": 4.125,
+        "maturityDate": "2034-06-15",
+        "faceValue": 100,
+        "frequency": 2,
+        "dayCountConvention": "ACT/ACT"
+      },
+      "price": 98.25,
+      "settlementDate": "2024-06-17"
+    },
+    "output": null,
+    "success": true,
+    "errorMessage": null,
+    "timestamp": "2024-06-17T14:30:00Z"
+  },
+  {
+    "correlationId": "def456ghi789",
+    "eventId": 9001,
+    "operation": "CalculateYield",
+    "input": {
+      "bondParameters": {
+        "cusip": "037833AK6",
+        "couponRate": 5.75,
+        "maturityDate": "2029-03-15",
+        "faceValue": 100,
+        "frequency": 2,
+        "dayCountConvention": "30/360"
+      },
+      "price": 103.125,
+      "settlementDate": "2024-06-17"
+    },
+    "output": null,
+    "success": true,
+    "errorMessage": null,
+    "timestamp": "2024-06-17T14:35:00Z"
+  },
+  {
+    "correlationId": "ghi789jkl012",
+    "eventId": 9001,
+    "operation": "CalculateYield",
+    "input": {
+      "bondParameters": {
+        "cusip": "594918BP8",
+        "couponRate": 8.5,
+        "maturityDate": "2028-09-01",
+        "faceValue": 100,
+        "frequency": 2,
+        "dayCountConvention": "30/360"
+      },
+      "price": 96.50,
+      "settlementDate": "2024-06-17"
+    },
+    "output": null,
+    "success": true,
+    "errorMessage": null,
+    "timestamp": "2024-06-17T14:40:00Z"
+  },
+  {
+    "correlationId": "jkl012mno345",
+    "eventId": 9001,
+    "operation": "CalculateYield",
+    "input": {
+      "bondParameters": {
+        "cusip": "46625HJV1",
+        "couponRate": 2.25,
+        "maturityDate": "2025-12-15",
+        "faceValue": 100,
+        "frequency": 2,
+        "dayCountConvention": "30/360"
+      },
+      "price": 97.75,
+      "settlementDate": "2024-06-17"
+    },
+    "output": null,
+    "success": true,
+    "errorMessage": null,
+    "timestamp": "2024-06-17T14:45:00Z"
+  },
+  {
+    "correlationId": "mno345pqr678",
+    "eventId": 9001,
+    "operation": "CalculateYield",
+    "input": {
+      "bondParameters": {
+        "cusip": "717081DK5",
+        "couponRate": 6.875,
+        "maturityDate": "2044-09-01",
+        "faceValue": 100,
+        "frequency": 2,
+        "dayCountConvention": "30/360"
+      },
+      "price": 112.50,
+      "settlementDate": "2024-06-17"
+    },
+    "output": null,
+    "success": true,
+    "errorMessage": null,
+    "timestamp": "2024-06-17T14:50:00Z"
+  }
+]
