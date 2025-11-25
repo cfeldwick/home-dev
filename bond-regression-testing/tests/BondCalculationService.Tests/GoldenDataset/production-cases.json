@@ -1,0 +1,53 @@
+[
+  {
+    "testCaseId": "PROD-001",
+    "description": "Production case - US Treasury 10Y (anonymized)",
+    "bondParameters": {
+      "cusip": "ANON000001",
+      "couponRate": 4.125,
+      "maturityDate": "2034-06-15",
+      "faceValue": 100,
+      "frequency": 2,
+      "dayCountConvention": "ACT/ACT"
+    },
+    "price": 98.25,
+    "settlementDate": "2024-06-17",
+    "source": "production",
+    "tags": ["treasury", "10-year", "anonymized"],
+    "createdAt": "2024-06-17T14:30:00Z"
+  },
+  {
+    "testCaseId": "PROD-002",
+    "description": "Production case - Investment grade corporate (anonymized)",
+    "bondParameters": {
+      "cusip": "ANON000002",
+      "couponRate": 5.75,
+      "maturityDate": "2029-03-15",
+      "faceValue": 100,
+      "frequency": 2,
+      "dayCountConvention": "30/360"
+    },
+    "price": 103.125,
+    "settlementDate": "2024-06-17",
+    "source": "production",
+    "tags": ["corporate", "investment-grade", "anonymized"],
+    "createdAt": "2024-06-17T14:30:00Z"
+  },
+  {
+    "testCaseId": "PROD-003",
+    "description": "Production case - High yield bond (anonymized)",
+    "bondParameters": {
+      "cusip": "ANON000003",
+      "couponRate": 8.5,
+      "maturityDate": "2028-09-01",
+      "faceValue": 100,
+      "frequency": 2,
+      "dayCountConvention": "30/360"
+    },
+    "price": 96.50,
+    "settlementDate": "2024-06-17",
+    "source": "production",
+    "tags": ["high-yield", "corporate", "anonymized"],
+    "createdAt": "2024-06-17T14:30:00Z"
+  }
+]
