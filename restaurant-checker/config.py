@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # Booking parameters
     target_date: str = Field(
-        default="2024-12-31",
+        default="2025-12-31",
         description="Target date in YYYY-MM-DD format"
     )
     target_time: str = Field(

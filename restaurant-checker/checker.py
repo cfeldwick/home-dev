@@ -2,25 +2,33 @@
 TableAgent availability checker using Selenium.
 
 This module handles the browser automation to check restaurant availability
-on tableagent.com. The page structure was analyzed to find the booking widget.
+on tableagent.com.
+
+Page Structure (discovered via explore_page.py):
+- Form: id="findtableform"
+- Date: input id="reservationdate" (text, MM/DD/YYYY format, has datepicker)
+- Time: select id="reservationtime" (populated after date selection)
+- Party Size: select id="partysize" (options: "Party Size", "1 person", "2 people", etc.)
+- Hours: select id="id_hours" (may populate with available slots)
 """
 
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
     TimeoutException,
     NoSuchElementException,
-    ElementClickInterceptedException,
+    StaleElementReferenceException,
 )
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -51,11 +59,11 @@ class TableAgentChecker:
     """
     Checks availability on tableagent.com restaurant pages.
 
-    TableAgent uses a booking widget that typically has:
-    - Date picker (calendar or dropdown)
-    - Time dropdown
-    - Party size (covers) selector
-    - Available time slots display
+    TableAgent booking form structure:
+    - Form: id="findtableform"
+    - Date: input#reservationdate (MM/DD/YYYY)
+    - Time: select#reservationtime
+    - Party Size: select#partysize
     """
 
     def __init__(self, settings: Settings):
@@ -108,7 +116,6 @@ class TableAgentChecker:
             cookie_selectors = [
                 "button[id*='accept']",
                 "button[class*='accept']",
-                "a[id*='accept']",
                 "#CybotCookiebotDialogBodyButtonAccept",
                 ".cookie-accept",
                 "[data-action='accept']",
@@ -136,16 +143,7 @@ class TableAgentChecker:
         return max(0, target_hour - 1), min(23, target_hour + 1)
 
     def check_availability(self, restaurant_url: str) -> AvailabilityResult:
-        """
-        Check availability for a single restaurant.
-
-        TableAgent booking widgets typically work by:
-        1. Selecting date from a calendar widget
-        2. Selecting party size (covers)
-        3. Viewing available time slots
-
-        The exact selectors may need adjustment based on the specific page structure.
-        """
+        """Check availability for a single restaurant."""
         if not self.driver:
             raise RuntimeError("Driver not initialized. Use context manager.")
 
@@ -161,16 +159,32 @@ class TableAgentChecker:
 
             self._handle_cookie_consent()
 
-            # Try to get restaurant name from page
+            # Get restaurant name from h1
             try:
-                restaurant_name = self.driver.find_element(By.TAG_NAME, "h1").text
+                h1 = self.driver.find_element(By.TAG_NAME, "h1")
+                restaurant_name = h1.text.strip()
             except NoSuchElementException:
                 restaurant_name = restaurant_url.split("/")[-2].replace("-", " ").title()
 
-            # Look for the booking widget - TableAgent uses various structures
-            # Try multiple approaches to find and interact with the booking form
+            # Check for the booking form
+            try:
+                form = self.driver.find_element(By.ID, "findtableform")
+                logger.debug("Found booking form: findtableform")
+            except NoSuchElementException:
+                error = "Booking form not found on page"
+                logger.error(error)
+                return AvailabilityResult(
+                    restaurant_name=restaurant_name,
+                    restaurant_url=restaurant_url,
+                    date=self.settings.target_date,
+                    party_size=self.settings.party_size,
+                    available_times=[],
+                    checked_at=datetime.now(),
+                    error=error,
+                )
 
-            available_times = self._check_tableagent_widget(target_date)
+            # Fill in the booking form
+            available_times = self._fill_form_and_check(target_date)
 
         except TimeoutException as e:
             error = f"Timeout waiting for page elements: {e}"
@@ -189,300 +203,122 @@ class TableAgentChecker:
             error=error,
         )
 
-    def _check_tableagent_widget(self, target_date: datetime) -> list[str]:
+    def _fill_form_and_check(self, target_date: datetime) -> list[str]:
         """
-        Interact with TableAgent's booking widget to check availability.
+        Fill in the TableAgent booking form and check available times.
 
-        TableAgent restaurants typically have a booking widget with:
-        - A date selector (could be calendar or date input)
-        - A party size selector
-        - Time slot buttons or dropdown
-
-        This method attempts to interact with these elements.
+        Form elements:
+        - input#reservationdate (MM/DD/YYYY)
+        - select#partysize
+        - select#reservationtime (populated dynamically)
         """
         wait = WebDriverWait(self.driver, 10)
         available_times = []
 
-        # Strategy 1: Look for iframe-based booking widget
-        iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
-        for iframe in iframes:
-            src = iframe.get_attribute("src") or ""
-            if "booking" in src.lower() or "reservation" in src.lower():
-                logger.debug(f"Found booking iframe: {src}")
-                self.driver.switch_to.frame(iframe)
-                try:
-                    available_times = self._interact_with_booking_form(target_date)
-                finally:
-                    self.driver.switch_to.default_content()
-                if available_times:
-                    return available_times
-
-        # Strategy 2: Direct booking form on page
-        available_times = self._interact_with_booking_form(target_date)
-        if available_times:
-            return available_times
-
-        # Strategy 3: Look for "Book" or "Reserve" buttons that open a modal
-        book_buttons = self.driver.find_elements(
-            By.XPATH,
-            "//button[contains(translate(., 'BOOK', 'book'), 'book')] | "
-            "//a[contains(translate(., 'BOOK', 'book'), 'book')] | "
-            "//button[contains(translate(., 'RESERVE', 'reserve'), 'reserve')] | "
-            "//a[contains(translate(., 'RESERVE', 'reserve'), 'reserve')]"
-        )
-        for btn in book_buttons:
-            try:
-                if btn.is_displayed():
-                    btn.click()
-                    time.sleep(1)
-                    available_times = self._interact_with_booking_form(target_date)
-                    if available_times:
-                        return available_times
-            except ElementClickInterceptedException:
-                continue
-
-        logger.warning("Could not find booking widget on page")
-        return available_times
-
-    def _interact_with_booking_form(self, target_date: datetime) -> list[str]:
-        """
-        Interact with the booking form to check available time slots.
-
-        This tries multiple common patterns for date/party/time selection.
-        """
-        available_times = []
-        wait = WebDriverWait(self.driver, 5)
-
+        # Step 1: Set party size first
+        logger.debug(f"Setting party size to {self.settings.party_size}")
         try:
-            # Step 1: Set party size
-            self._set_party_size()
-
-            # Step 2: Set date
-            self._set_date(target_date)
-
-            # Step 3: Look for available time slots
-            time.sleep(1)  # Allow dynamic content to load
-            available_times = self._find_available_times()
-
-        except Exception as e:
-            logger.debug(f"Form interaction failed: {e}")
-
-        return available_times
-
-    def _set_party_size(self):
-        """Set the party size in the booking form."""
-        party_size = self.settings.party_size
-
-        # Try various party size selectors
-        selectors = [
-            # Dropdown selects
-            ("select[name*='party']", "select"),
-            ("select[name*='guest']", "select"),
-            ("select[name*='cover']", "select"),
-            ("select[name*='people']", "select"),
-            ("select[id*='party']", "select"),
-            ("select[id*='guest']", "select"),
-            ("#partySize", "select"),
-            ("#covers", "select"),
-            ("#guests", "select"),
-            # Input fields
-            ("input[name*='party']", "input"),
-            ("input[name*='guest']", "input"),
-            ("input[type='number'][name*='party']", "input"),
-        ]
-
-        for selector, elem_type in selectors:
-            try:
-                elem = self.driver.find_element(By.CSS_SELECTOR, selector)
-                if elem.is_displayed():
-                    if elem_type == "select":
-                        select = Select(elem)
-                        # Try to select by value or visible text
-                        try:
-                            select.select_by_value(str(party_size))
-                        except NoSuchElementException:
-                            select.select_by_visible_text(str(party_size))
-                    else:
-                        elem.clear()
-                        elem.send_keys(str(party_size))
-                    logger.debug(f"Set party size to {party_size}")
-                    return
-            except NoSuchElementException:
-                continue
-
-        # Try clicking +/- buttons
-        try:
-            current = self.driver.find_element(
-                By.XPATH, "//*[contains(@class, 'party') or contains(@class, 'guest')]//span"
-            )
-            current_val = int(current.text)
-            diff = party_size - current_val
-            if diff > 0:
-                plus_btn = self.driver.find_element(
-                    By.XPATH, "//*[contains(@class, 'party') or contains(@class, 'guest')]//button[contains(., '+')]"
-                )
-                for _ in range(diff):
-                    plus_btn.click()
-            elif diff < 0:
-                minus_btn = self.driver.find_element(
-                    By.XPATH, "//*[contains(@class, 'party') or contains(@class, 'guest')]//button[contains(., '-')]"
-                )
-                for _ in range(abs(diff)):
-                    minus_btn.click()
-        except Exception:
-            pass
-
-        logger.debug("Could not find party size selector")
-
-    def _set_date(self, target_date: datetime):
-        """Set the date in the booking form."""
-        date_str = target_date.strftime("%Y-%m-%d")
-        date_display = target_date.strftime("%d/%m/%Y")
-        day = target_date.day
-        month = target_date.strftime("%B")
-        month_short = target_date.strftime("%b")
-
-        # Try date input field
-        date_inputs = [
-            "input[type='date']",
-            "input[name*='date']",
-            "input[id*='date']",
-            "#bookingDate",
-            "#reservationDate",
-        ]
-
-        for selector in date_inputs:
-            try:
-                elem = self.driver.find_element(By.CSS_SELECTOR, selector)
-                if elem.is_displayed():
-                    elem.clear()
-                    elem.send_keys(date_str)
-                    logger.debug(f"Set date to {date_str}")
-                    return
-            except NoSuchElementException:
-                continue
-
-        # Try calendar picker
-        try:
-            # Click on date field to open calendar
-            date_trigger = self.driver.find_element(
-                By.XPATH,
-                "//*[contains(@class, 'date') or contains(@class, 'calendar')]"
-                "[contains(@class, 'picker') or contains(@class, 'input') or contains(@class, 'trigger')]"
-            )
-            date_trigger.click()
+            party_select = Select(self.driver.find_element(By.ID, "partysize"))
+            # Options are like "4 people" or "1 person"
+            party_text = f"{self.settings.party_size} people" if self.settings.party_size > 1 else "1 person"
+            party_select.select_by_visible_text(party_text)
             time.sleep(0.5)
-
-            # Navigate to correct month if needed
-            self._navigate_calendar_to_month(target_date)
-
-            # Click on the day
-            day_elem = self.driver.find_element(
-                By.XPATH, f"//td[contains(@class, 'day') and text()='{day}'] | "
-                         f"//div[contains(@class, 'day') and text()='{day}']"
-            )
-            day_elem.click()
-            logger.debug(f"Selected date {day} from calendar")
-            return
         except Exception as e:
-            logger.debug(f"Calendar picker interaction failed: {e}")
+            logger.warning(f"Could not set party size: {e}")
 
-    def _navigate_calendar_to_month(self, target_date: datetime):
-        """Navigate calendar widget to the target month."""
-        target_month = target_date.strftime("%B %Y")
-        target_month_short = target_date.strftime("%b %Y")
+        # Step 2: Set the date
+        date_str = target_date.strftime("%m/%d/%Y")  # MM/DD/YYYY format
+        logger.debug(f"Setting date to {date_str}")
+        try:
+            date_input = self.driver.find_element(By.ID, "reservationdate")
+            # Clear and set the date
+            date_input.clear()
+            date_input.send_keys(date_str)
+            # Press tab or click elsewhere to trigger any date validation
+            date_input.send_keys(Keys.TAB)
+            time.sleep(1)  # Wait for time slots to load
 
-        max_clicks = 12
-        for _ in range(max_clicks):
+            # Click elsewhere to close any datepicker
+            self.driver.find_element(By.TAG_NAME, "body").click()
+            time.sleep(0.5)
+        except Exception as e:
+            logger.warning(f"Could not set date: {e}")
+
+        # Step 3: Wait for time options to load and check what's available
+        time.sleep(1.5)  # Give time for AJAX to update time slots
+
+        # Check the reservationtime select for available times
+        available_times = self._get_available_times()
+
+        # Also check id_hours if it has options (backup)
+        if not available_times:
             try:
-                # Check current month display
-                month_display = self.driver.find_element(
-                    By.XPATH, "//*[contains(@class, 'month') or contains(@class, 'title')]"
-                )
-                current_text = month_display.text.strip()
+                hours_select = self.driver.find_element(By.ID, "id_hours")
+                hours_options = hours_select.find_elements(By.TAG_NAME, "option")
+                for opt in hours_options:
+                    text = opt.text.strip()
+                    if text and self._is_time_in_range(text):
+                        available_times.append(text)
+            except NoSuchElementException:
+                pass
 
-                if target_month in current_text or target_month_short in current_text:
-                    return  # We're at the right month
+        return available_times
 
-                # Click next month button
-                next_btn = self.driver.find_element(
-                    By.XPATH, "//button[contains(@class, 'next')] | "
-                             "//a[contains(@class, 'next')] | "
-                             "//*[@aria-label='Next month']"
-                )
-                next_btn.click()
-                time.sleep(0.3)
-            except Exception:
-                break
-
-    def _find_available_times(self) -> list[str]:
-        """Find available time slots on the page."""
+    def _get_available_times(self) -> list[str]:
+        """Get available time slots from the reservationtime select."""
         available_times = []
         min_hour, max_hour = self._get_time_range()
 
-        # Look for time slot elements - various patterns
-        time_patterns = [
-            # Time slot buttons
-            "//button[contains(@class, 'time') or contains(@class, 'slot')]",
-            "//a[contains(@class, 'time') or contains(@class, 'slot')]",
-            "//div[contains(@class, 'time-slot') or contains(@class, 'timeslot')]",
-            # Time in lists
-            "//li[contains(@class, 'time') or contains(@class, 'slot')]",
-            # Generic time patterns
-            "//*[contains(text(), ':00') or contains(text(), ':15') or contains(text(), ':30') or contains(text(), ':45')]",
-        ]
-
-        for pattern in time_patterns:
-            try:
-                elements = self.driver.find_elements(By.XPATH, pattern)
-                for elem in elements:
-                    text = elem.text.strip()
-                    if self._is_valid_time(text, min_hour, max_hour):
-                        # Check if it's actually available (not disabled/crossed out)
-                        classes = elem.get_attribute("class") or ""
-                        if not any(x in classes.lower() for x in ["disabled", "unavailable", "booked", "sold"]):
-                            if not elem.get_attribute("disabled"):
-                                available_times.append(text)
-            except Exception:
-                continue
-
-        # Try select dropdown
         try:
-            time_select = self.driver.find_element(
-                By.CSS_SELECTOR, "select[name*='time'], select[id*='time']"
-            )
-            select = Select(time_select)
-            for option in select.options:
-                text = option.text.strip()
-                if self._is_valid_time(text, min_hour, max_hour):
-                    if option.is_enabled():
-                        available_times.append(text)
-        except NoSuchElementException:
-            pass
+            time_select = self.driver.find_element(By.ID, "reservationtime")
+            options = time_select.find_elements(By.TAG_NAME, "option")
 
-        # Deduplicate and sort
-        available_times = sorted(set(available_times))
-        logger.info(f"Found {len(available_times)} available times: {available_times}")
+            for option in options:
+                text = option.text.strip()
+                value = option.get_attribute("value")
+
+                # Skip placeholder options
+                if not text or text.lower() in ["select time", "select a time", "time", ""]:
+                    continue
+                if not value:
+                    continue
+
+                # Check if the option is disabled
+                if option.get_attribute("disabled"):
+                    continue
+
+                # Check if it's in our target time range
+                if self._is_time_in_range(text):
+                    available_times.append(text)
+                    logger.debug(f"Found available time: {text}")
+
+        except NoSuchElementException:
+            logger.warning("Could not find reservationtime select")
+        except Exception as e:
+            logger.warning(f"Error getting available times: {e}")
+
         return available_times
 
-    def _is_valid_time(self, text: str, min_hour: int, max_hour: int) -> bool:
-        """Check if text represents a valid time in our target range."""
+    def _is_time_in_range(self, time_text: str) -> bool:
+        """Check if a time string falls within our target range."""
         import re
-        # Match patterns like "7:30", "19:30", "7:30 PM", "7.30pm"
-        time_pattern = r"(\d{1,2})[:\.](\d{2})\s*(am|pm|AM|PM)?"
-        match = re.search(time_pattern, text)
+
+        min_hour, max_hour = self._get_time_range()
+
+        # Parse times like "7:30 PM", "19:30", "11:30 AM"
+        match = re.search(r"(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?", time_text)
         if not match:
             return False
 
         hour = int(match.group(1))
         period = match.group(3)
 
-        # Convert to 24-hour if needed
+        # Convert to 24-hour format
         if period:
-            period = period.lower()
-            if period == "pm" and hour < 12:
+            period = period.upper()
+            if period == "PM" and hour < 12:
                 hour += 12
-            elif period == "am" and hour == 12:
+            elif period == "AM" and hour == 12:
                 hour = 0
 
         return min_hour <= hour <= max_hour
