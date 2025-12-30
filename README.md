@@ -14,13 +14,14 @@ This repository serves as a personal library of:
 
 ```
 home-dev/
-├── angular/          # Angular frontend samples
-├── elastic/          # Elastic Stack & .NET logging samples
-├── docker-compose/   # Docker orchestration examples
-├── selenium/         # Selenium testing & automation
-├── regex-tester/     # Browser-based regex testing tool
-├── razorlight/       # Miscellaneous utilities
-└── docs/             # Documentation & requirements
+├── angular/              # Angular frontend samples
+├── elastic/              # Elastic Stack & .NET logging samples
+├── docker-compose/       # Docker orchestration examples
+├── selenium/             # Selenium testing & automation
+├── regex-tester/         # Browser-based regex testing tool
+├── restaurant-checker/   # Restaurant availability monitor
+├── razorlight/           # Miscellaneous utilities
+└── docs/                 # Documentation & requirements
 ```
 
 ## Available Samples
@@ -91,6 +92,20 @@ home-dev/
 
 ---
 
+### 🍽️ Restaurant Checker
+**Location:** `restaurant-checker/`
+
+- **TableAgent Availability Monitor** - Automated restaurant table availability checker
+  - Selenium-based browser automation for tableagent.com
+  - Multiple notification channels (Slack, Telegram, Pushover, Email, SMS)
+  - GCP Cloud Run deployment with Cloud Scheduler
+  - Configurable date, time, and party size
+  - Docker support for containerized deployment
+
+**Technologies:** Python, Selenium, Pydantic, Docker, GCP Cloud Run
+
+---
+
 ## Usage
 
 Browse to the relevant directory and examine the code samples. Each major section may contain its own README with additional context.
@@ -111,6 +126,7 @@ To use a sample:
 | Docker multi-service setup | `docker-compose/` | `docker-compose.yml` |
 | Selenium automation | `selenium/` | `*.ipynb` |
 | Regex pattern testing | `regex-tester/` | `index.html` |
+| Restaurant availability | `restaurant-checker/` | `main.py`, `checker.py` |
 
 ## Contributing
 
