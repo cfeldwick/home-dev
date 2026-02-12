@@ -16,6 +16,7 @@ This repository serves as a personal library of:
 home-dev/
 ├── angular/          # Angular frontend samples
 ├── elastic/          # Elastic Stack & .NET logging samples
+├── grpc-middleware/  # gRPC middleware examples & patterns
 ├── docker-compose/   # Docker orchestration examples
 ├── selenium/         # Selenium testing & automation
 ├── regex-tester/     # Browser-based regex testing tool
@@ -46,6 +47,20 @@ home-dev/
 - **Fake Elastic Server** - FastAPI-based mock Elastic server for testing
 
 **Technologies:** C#, .NET 9.0, Serilog, Python, FastAPI
+
+---
+
+### 🔌 gRPC Middleware & Patterns
+**Location:** `grpc-middleware/`
+
+- **HeaderToTrailer Middleware** - ASP.NET Core middleware that copies HTTP response headers to gRPC trailers
+  - Solves the problem of authentication headers being inaccessible to gRPC clients
+  - Custom authentication handler that sets headers
+  - Proper middleware pipeline configuration
+  - Python gRPC client demonstrating header access via trailing metadata
+  - Complete working example with authentication scenarios
+
+**Technologies:** C#, .NET 8.0, gRPC, ASP.NET Core, Python, grpcio
 
 ---
 
@@ -108,6 +123,8 @@ To use a sample:
 | Angular dialog component | `angular/components/` | `submit-dialog.ts`, `submit-dialog.spec.ts` |
 | .NET structured logging | `elastic/WebApplication/` | `Program.cs`, `appsettings.json` |
 | Mock Elastic server | `elastic/FakeElasticServer/` | `main.py` |
+| gRPC header-to-trailer middleware | `grpc-middleware/GrpcService/` | `HeaderToTrailerMiddleware.cs`, `Program.cs` |
+| gRPC Python client | `grpc-middleware/client/` | `client.py` |
 | Docker multi-service setup | `docker-compose/` | `docker-compose.yml` |
 | Selenium automation | `selenium/` | `*.ipynb` |
 | Regex pattern testing | `regex-tester/` | `index.html` |

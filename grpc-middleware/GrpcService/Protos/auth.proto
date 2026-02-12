@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+import "google/api/annotations.proto";
+
+option csharp_namespace = "GrpcService";
+
+package auth;
+
+// The authentication service
+service AuthService {
+  // Gets user information - requires authentication
+  rpc GetUserInfo (GetUserInfoRequest) returns (GetUserInfoResponse) {
+    option (google.api.http) = {
+      get: "/v1/users/{user_id}"
+    };
+  }
+}
+
+// Request message for GetUserInfo
+message GetUserInfoRequest {
+  string user_id = 1;
+}
+
+// Response message for GetUserInfo
+message GetUserInfoResponse {
+  string user_id = 1;
+  string username = 2;
+  string email = 3;
+}
