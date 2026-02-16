@@ -14,13 +14,14 @@ This repository serves as a personal library of:
 
 ```
 home-dev/
-├── angular/          # Angular frontend samples
-├── elastic/          # Elastic Stack & .NET logging samples
-├── docker-compose/   # Docker orchestration examples
-├── selenium/         # Selenium testing & automation
-├── regex-tester/     # Browser-based regex testing tool
-├── razorlight/       # Miscellaneous utilities
-└── docs/             # Documentation & requirements
+├── angular/                  # Angular frontend samples
+├── bond-regression-testing/  # Bond calculation regression testing POC
+├── docker-compose/           # Docker orchestration examples
+├── elastic/                  # Elastic Stack & .NET logging samples
+├── razorlight/               # Miscellaneous utilities
+├── regex-tester/             # Browser-based regex testing tool
+├── selenium/                 # Selenium testing & automation
+└── docs/                     # Documentation & requirements
 ```
 
 ## Available Samples
@@ -33,6 +34,20 @@ home-dev/
 - **Dockerfile** - Containerized Angular application setup
 
 **Technologies:** TypeScript, Angular, Jasmine (testing)
+
+---
+
+### 📈 Bond Regression Testing
+**Location:** `bond-regression-testing/`
+
+- **Bond Calculation Service** - ASP.NET Core service demonstrating regression testing for third-party library upgrades
+  - Snapshot testing with Verify.Xunit
+  - Structured logging with Serilog to Elasticsearch
+  - Golden dataset management (synthetic + production cases)
+  - Data export tool for curating production test cases
+  - Feature flags for test data capture
+
+**Technologies:** C#, .NET 8.0, xUnit, FluentAssertions, Verify, Serilog, Elasticsearch
 
 ---
 
@@ -106,6 +121,7 @@ To use a sample:
 | Need | Location | Files |
 |------|----------|-------|
 | Angular dialog component | `angular/components/` | `submit-dialog.ts`, `submit-dialog.spec.ts` |
+| Bond regression testing | `bond-regression-testing/` | `BondYieldRegressionTests.cs`, `BondCalculationService.cs` |
 | .NET structured logging | `elastic/WebApplication/` | `Program.cs`, `appsettings.json` |
 | Mock Elastic server | `elastic/FakeElasticServer/` | `main.py` |
 | Docker multi-service setup | `docker-compose/` | `docker-compose.yml` |
